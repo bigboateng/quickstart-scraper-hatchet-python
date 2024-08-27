@@ -9,7 +9,7 @@ const siteNames = {
 };
 
 export default function AppComponent() {
-  const [site, setSite] = useState('googleNews'); // Default to Google News
+  const [site, setSite] = useState('googleNews'); 
   const [googleNewsArticles, setGoogleNewsArticles] = useState([]);
   const [techCrunchArticles, setTechCrunchArticles] = useState([]);
   const [selectedArticle, setSelectedArticle] = useState(null);
@@ -45,12 +45,20 @@ export default function AppComponent() {
       const data = JSON.parse(event.data);
 
       if (data.type === "result") {
-        const googleNewsData = data.payload.start.googleNewsArticles.parse_articles.articles;
-        const techCrunchData = data.payload.start.techCrunchArticles.parse_articles.articles;
+        const start = data.payload.start;
+        if (start) {
+          const googleNewsData = start.googleNewsArticles?.parse_articles?.articles || [];
+          const techCrunchData = start.techCrunchArticles?.parse_articles?.articles || [];
 
-        setGoogleNewsArticles(googleNewsData);
-        setTechCrunchArticles(techCrunchData);
-        setStatus("completed");
+          setGoogleNewsArticles(googleNewsData);
+          setTechCrunchArticles(techCrunchData);
+          setStatus("completed");
+        } else {
+          setStatus("completed with no data");
+        }
+        sse.close();
+      } else if (data.type === "error") {
+        setStatus("error: " + (data.payload.message || "Unknown error"));
         sse.close();
       } else {
         setStatus("in progress - " + messageId);
@@ -59,7 +67,7 @@ export default function AppComponent() {
 
     sse.onerror = () => {
       console.error("Stream error");
-      setStatus("error");
+      setStatus("error: Stream connection failed");
       sse.close();
     };
   };

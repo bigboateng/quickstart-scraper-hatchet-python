@@ -29,8 +29,8 @@ class ScraperWorkflow:
 @hatchet.workflow(on_events=["scraper:techcrunch_ai_homepage"])
 class TechCrunchAIScraperWorkflow:
     
-    @hatchet.step()
-    async def fetch_homepage(self):
+    @hatchet.step(retries=3)
+    async def fetch_homepage(self, context: Context):
         logger.info("Fetching TechCrunch AI homepage articles")
         url = "https://techcrunch.com/category/artificial-intelligence/"
         
@@ -59,7 +59,6 @@ class TechCrunchAIScraperWorkflow:
                         "link": link_element['href'],
                         "excerpt": excerpt_element.get_text(strip=True) if excerpt_element else "",
                         "published_time": time_element.get_text(strip=True) if time_element else "",
-                        "image_url": image_element['src'] if image_element else ""
                     })
             return {"status": "success", "articles": articles_data}
         except requests.exceptions.RequestException as e:
@@ -76,27 +75,27 @@ class TechCrunchAIScraperWorkflow:
             raise Exception(error_message)
 
         parsed_articles = []
-        for article_data in step_output.get("articles", [])[:10]:  # Limit to first 10 articles
+        for article_data in step_output.get("articles", [])[:10]: 
             parsed_articles.append(Article(
                 title=article_data.get("title", ""),
                 author=article_data.get("author", ""),
                 link=article_data.get("link", ""),
                 excerpt=article_data.get("excerpt", "")[:100] + "..." if article_data.get("excerpt") else "",
                 published_time=article_data.get("published_time", ""),
-                image_url=article_data.get("image_url", "")
             ))
         
         return {"status": "success", "articles": [article.dict() for article in parsed_articles]}
 
 @hatchet.workflow(on_events=["scraper:google_news_homepage"])
 class GoogleNewsScraperWorkflow:
-    @hatchet.step()
+    
+    @hatchet.step(retries=3) 
     async def fetch_homepage(self, context: Context):
         logger.info("Fetching Google News homepage articles")
         url = "https://news.google.com/topstories"
 
         result = await asyncio.to_thread(self._fetch_homepage, url)
-        return result  # Remove the .model_dump() call
+        return result 
 
     def _fetch_homepage(self, url):
         try:
@@ -118,7 +117,6 @@ class GoogleNewsScraperWorkflow:
                         "author": source_element.get_text(strip=True) if source_element else "Unknown Source",
                         "link": link_element['href'],
                         "published_time": time_element.get_text(strip=True) if time_element else "Unknown Time",
-                        "image_url": image_element['src'] if image_element else ""
                     })
 
             return {"status": "success", "articles": articles_data}
@@ -136,13 +134,12 @@ class GoogleNewsScraperWorkflow:
             raise Exception(error_message)
 
         parsed_articles = []
-        for article_data in step_output.get("articles", [])[:10]:  # Limit to first 10 articles
+        for article_data in step_output.get("articles", [])[:10]: 
             parsed_articles.append(Article(
                 title=article_data.get("title", ""),
                 author=article_data.get("author", ""),
                 link=f"https://news.google.com{article_data.get('link', '')[1:]}",
                 published_time=article_data.get("published_time", ""),
-                image_url=article_data.get("image_url", "")
             ))
         
         return {"status": "success", "articles": [article.dict() for article in parsed_articles]}

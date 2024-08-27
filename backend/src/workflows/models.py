@@ -7,7 +7,6 @@ class Article(BaseModel):
     link: Optional[str] = ""
     excerpt: Optional[str] = ""
     published_time: Optional[str] = ""
-    image_url: Optional[str] = ""
 
 class ScrapingResult(BaseModel):
     status: str
