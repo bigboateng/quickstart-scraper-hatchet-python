@@ -94,7 +94,7 @@ Do not commit your `.env` file to version control. The `.env` file contains sens
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License:
 
 MIT License
 

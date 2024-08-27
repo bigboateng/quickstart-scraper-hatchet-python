@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 Setup the workflow
 This is the main workflow that will trigger both the TechCrunch and Google News scraping workflows.
 It streams the progress and results to the client.
+"""
 @hatchet.workflow(on_events=["scraper:start"])
 class ScraperWorkflow:
     
