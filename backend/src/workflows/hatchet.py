@@ -1,6 +1,9 @@
 
 from hatchet_sdk import Hatchet
-from dotenv import load_dotenv
-load_dotenv()
+import os
 
-hatchet = Hatchet(debug=True)
+from ..config import settings
+
+os.environ["HATCHET_CLIENT_TOKEN"] = settings.hatchet_client_token
+
+hatchet = Hatchet()

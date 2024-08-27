@@ -1,6 +1,5 @@
 from .hatchet import hatchet
 from .scraper_workflow import ScraperWorkflow, TechCrunchAIScraperWorkflow, GoogleNewsScraperWorkflow
-from hatchet_sdk import Context
 
 
 def start():

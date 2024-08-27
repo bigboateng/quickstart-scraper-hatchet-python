@@ -1,28 +1,38 @@
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
 import json
+import logging
+import os
+from typing import AsyncGenerator
+import asyncio
+
 import uvicorn
-from dotenv import load_dotenv
-
-# Import the Hatchet SDK
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from hatchet_sdk import Hatchet
+from pydantic import BaseModel
 
-# Load environment variables from a .env file
-load_dotenv()
+from ..config import settings
 
-# Initialize Hatchet with the API key from environment variables
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Set the environment variable for Hatchet
+os.environ["HATCHET_CLIENT_TOKEN"] = settings.hatchet_client_token
+
+# Initialize Hatchet client
 hatchet = Hatchet()
 
+# Initialize FastAPI app
 app = FastAPI()
 
-# Define the allowed origins for CORS (in this case, allowing localhost from frontend)
+# Define CORS origins
 origins = [
     "http://localhost:3000",
     "localhost:3000"
 ]
 
-# Apply CORS middleware to the FastAPI application
+# Apply CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -31,56 +41,58 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Basic route to confirm the API is working
+# Define Pydantic model for response
+class ScrapeResponse(BaseModel):
+    messageId: str
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Hatchet Scraper API!"}
 
-# Endpoint to initiate a scraping workflow
-@app.post("/scrape")
+@app.post("/scrape", response_model=ScrapeResponse)
 async def scrape():
-    # Trigger the Hatchet workflow named "ScraperWorkflow"
     workflowRun = await hatchet.client.admin.aio.run_workflow("ScraperWorkflow", {})
-    
-    # Return the unique ID of the workflow run to track its progress
-    return {
-        "messageId": workflowRun.workflow_run_id,
-    }
+    logger.info(f"Started scraping workflow with ID: {workflowRun.workflow_run_id}")
+    return ScrapeResponse(messageId=workflowRun.workflow_run_id)
 
 # Generator function to stream events from a Hatchet workflow
 async def event_stream_generator(workflowRunId):
-    # Retrieve the workflow run using its ID
+    logger.info(f"Starting event stream for workflow run ID: {workflowRunId}")
     workflowRun = hatchet.client.admin.get_workflow_run(workflowRunId)
 
-    # Stream each event emitted by the workflow in real-time
-    async for event in workflowRun.stream():
-        # Format the event data to be sent to the client
+    try:
+        async for event in workflowRun.stream():
+            logger.info(f"Received event: {event.type}")
+            data = json.dumps({
+                "type": event.type,
+                "payload": event.payload,
+                "messageId": workflowRunId
+            })
+            yield f"data: {data}\n\n"
+
+        result = await workflowRun.result()
+        logger.info(f"Workflow completed. Result: {result}")
         data = json.dumps({
-            "type": event.type,
-            "payload": event.payload,
+            "type": "result",
+            "payload": result,
             "messageId": workflowRunId
         })
-        yield "data: " + data + "\n\n"
+        yield f"data: {data}\n\n"
+    except Exception as e:
+        logger.error(f"Error in event stream: {str(e)}")
+        error_data = json.dumps({
+            "type": "error",
+            "payload": {"message": str(e)},
+            "messageId": workflowRunId
+        })
+        yield f"data: {error_data}\n\n"
 
-    # Once the workflow completes, get the final result
-    result = await workflowRun.result()
-
-    # Send the final result to the client
-    data = json.dumps({
-        "type": "result",
-        "payload": result,
-        "messageId": workflowRunId
-    })
-
-    yield "data: " + data + "\n\n"
-
-# Endpoint to stream workflow events based on the message ID
 @app.get("/message/{messageId}")
 async def stream(messageId: str):
-    # In this case, the message ID is used directly as the workflow run ID
-    workflowRunId = messageId
-    return StreamingResponse(event_stream_generator(workflowRunId), media_type='text/event-stream')
+    return StreamingResponse(event_stream_generator(messageId), media_type='text/event-stream')
 
-# Function to start the FastAPI application with uvicorn
 def start():
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
+
+if __name__ == "__main__":
+    start()
