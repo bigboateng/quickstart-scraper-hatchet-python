@@ -22,7 +22,6 @@ class ScraperWorkflow:
         google_news_result = await (await context.aio.spawn_workflow("GoogleNewsScraperWorkflow", {})).result()
 
         return {
-            "techCrunchArticles": ScrapingResult(status="success", **techcrunch_result).model_dump(),
             "techCrunchArticles": techcrunch_result,
             "googleNewsArticles": google_news_result
         }
