@@ -23,7 +23,8 @@ class ScraperWorkflow:
 
         return {
             "techCrunchArticles": ScrapingResult(status="success", **techcrunch_result).model_dump(),
-            "googleNewsArticles": ScrapingResult(status="success", **google_news_result).model_dump()
+            "techCrunchArticles": techcrunch_result,
+            "googleNewsArticles": google_news_result
         }
 
 @hatchet.workflow(on_events=["scraper:techcrunch_ai_homepage"])
